@@ -1,0 +1,232 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import pyautogui
+import threading
+import time
+import keyboard
+import winsound
+
+class AutoTyperApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Auto Typer - Multi Keyword Edition")
+        self.running = False
+        self.entries = []
+        self.stop_keyword = None
+        self.stop_typing_flag = False
+
+        self.root.geometry("500x500")
+        self.root.resizable(False, False)
+
+        main_frame = ttk.Frame(root, padding=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        style = ttk.Style()
+        style.configure("TLabel", font=("Segoe UI", 10))
+        style.configure("TEntry", font=("Segoe UI", 10))
+        style.configure("TButton", font=("Segoe UI", 10))
+        style.configure("Small.TButton", font=("Segoe UI", 9))
+
+        form_frame = ttk.Frame(main_frame)
+        form_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(form_frame, text="Message").grid(row=0, column=0)
+        self.msg_entry = ttk.Entry(form_frame, width=20)
+        self.msg_entry.grid(row=1, column=0)
+
+        ttk.Label(form_frame, text="Keyword").grid(row=0, column=1)
+        self.key_entry = ttk.Entry(form_frame, width=15)
+        self.key_entry.grid(row=1, column=1)
+
+        ttk.Label(form_frame, text="Delay").grid(row=0, column=2)
+        self.delay_entry = ttk.Entry(form_frame, width=10)
+        self.delay_entry.insert(0, "0")
+        self.delay_entry.grid(row=1, column=2)
+
+        ttk.Button(form_frame, text="Add", command=self.add_entry).grid(row=1, column=3, padx=5)
+        ttk.Button(form_frame, text="Remove Selected", command=self.remove_selected).grid(row=1, column=4, padx=5)
+
+        # Treeview frame with scrollbars
+        tree_frame = ttk.Frame(main_frame)
+        tree_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
+        vsb.pack(side='right', fill='y')
+
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
+        hsb.pack(side='bottom', fill='x')
+
+        self.tree = ttk.Treeview(
+            tree_frame,
+            columns=("msg", "key", "delay"),
+            show="headings",
+            yscrollcommand=vsb.set,
+            xscrollcommand=hsb.set,
+            height=10
+        )
+        self.tree.heading("msg", text="Message")
+        self.tree.heading("key", text="Keyword")
+        self.tree.heading("delay", text="Delay")
+
+        self.tree.column("msg", width=220)
+        self.tree.column("key", width=150)
+        self.tree.column("delay", width=100)
+
+        self.tree.pack(fill=tk.BOTH, expand=True)
+        vsb.config(command=self.tree.yview)
+        hsb.config(command=self.tree.xview)
+
+        self.status_label = tk.Label(main_frame, text="Status: Idle", fg="blue", font=("Segoe UI", 10, "bold"))
+        self.status_label.pack(pady=5)
+
+        # Button Frame (Row 1)
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(pady=10)
+
+        ttk.Button(btn_frame, text="Set Keyword", command=self.show_current_keywords, style="Small.TButton", width=18).grid(row=0, column=0, padx=5, pady=4)
+        ttk.Button(btn_frame, text="Set Stop Keyword", command=self.set_stop_keyword_dialog, style="Small.TButton", width=18).grid(row=0, column=1, padx=5, pady=4)
+
+        # Exit Button Centered (Row 2)
+        exit_frame = ttk.Frame(main_frame)
+        exit_frame.pack()
+        ttk.Button(exit_frame, text="Exit", command=self.root.quit, style="Small.TButton", width=20).pack(pady=5)
+
+        keyboard.add_hotkey("F6", self.reset_status)
+        threading.Thread(target=self.monitor_keywords, daemon=True).start()
+
+    def show_current_keywords(self):
+        if not self.entries:
+            messagebox.showinfo("Keywords", "No keywords added.")
+            return
+        keywords = [f"{idx+1}. '{key}' for message: '{msg}'" for idx, (msg, key, _) in enumerate(self.entries)]
+        messagebox.showinfo("Current Keywords", "\n".join(keywords))
+
+    def set_stop_keyword_dialog(self):
+        def set_key():
+            key = entry.get().strip()
+            if not key:
+                messagebox.showerror("Error", "Stop keyword cannot be empty.")
+                return
+            self.stop_keyword = key
+            self.stop_typing_flag = False
+            self.update_status(f"Stop keyword set to '{self.stop_keyword}'", "purple")
+            popup.destroy()
+
+        popup = tk.Toplevel(self.root)
+        popup.title("Set Stop Keyword")
+        popup.geometry("300x100")
+        popup.resizable(False, False)
+        ttk.Label(popup, text="Enter Stop Keyword:").pack(pady=5)
+        entry = ttk.Entry(popup)
+        entry.pack(pady=5)
+        ttk.Button(popup, text="Set", command=set_key).pack()
+
+    def add_entry(self):
+        msg = self.msg_entry.get().strip()
+        key = self.key_entry.get().strip()
+        try:
+            delay = float(self.delay_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid Delay", "Delay must be a number")
+            return
+        if not msg or not key:
+            messagebox.showerror("Missing Input", "Both message and keyword are required")
+            return
+
+        self.entries.append((msg, key, delay))
+        self.tree.insert("", tk.END, values=(msg, key, delay))
+
+        self.msg_entry.delete(0, tk.END)
+        self.key_entry.delete(0, tk.END)
+        self.delay_entry.delete(0, tk.END)
+        self.delay_entry.insert(0, "0")
+
+    def remove_selected(self):
+        selected = self.tree.selection()
+        for item in selected:
+            idx = self.tree.index(item)
+            del self.entries[idx]
+            self.tree.delete(item)
+
+    def update_status(self, text, color):
+        self.status_label.config(text=f"Status: {text}", fg=color)
+
+    def reset_status(self):
+        self.running = False
+        self.stop_typing_flag = False
+        self.update_status("Idle", "blue")
+
+    def monitor_keywords(self):
+        typed_chars = ""
+        while True:
+            try:
+                event = keyboard.read_event()
+                if event.event_type == keyboard.KEY_DOWN:
+                    key = event.name
+
+                    if len(key) == 1:
+                        typed_chars += key
+                    elif key == 'space':
+                        typed_chars += ' '
+                    elif key == 'backspace':
+                        typed_chars = typed_chars[:-1]
+                    elif len(key) > 1:
+                        try:
+                            typed_chars += keyboard.get_typed_strings([event]).__next__()
+                        except StopIteration:
+                            continue
+
+                    if len(typed_chars) > 50:
+                        typed_chars = typed_chars[-50:]
+
+                    if self.stop_keyword and typed_chars.endswith(self.stop_keyword):
+                        self.stop_typing_flag = True
+                        typed_chars = ""
+                        self.update_status("Stop keyword detected! Stopping typing...", "red")
+                        self.running = False
+                        continue
+
+                    for msg, keyword, delay in self.entries:
+                        if typed_chars.endswith(keyword) and not self.running and not self.stop_typing_flag:
+                            for _ in range(len(keyword)):
+                                pyautogui.press('backspace')
+                                time.sleep(0.01)
+                            typed_chars = ""
+                            self.running = True
+                            threading.Thread(target=self.type_message, args=(msg, delay), daemon=True).start()
+            except:
+                time.sleep(0.1)
+
+    def type_message(self, message, delay):
+        self.root.after(0, self.update_status, "Typing in 3s...", "orange")
+        for _ in range(2):
+            winsound.Beep(1000, 200)
+            time.sleep(0.2)
+        winsound.Beep(1500, 300)
+        time.sleep(1)
+
+        initial_pos = pyautogui.position()
+        self.root.after(0, self.update_status, "Typing...", "green")
+
+        if pyautogui.position() != initial_pos:
+            self.root.after(0, self.update_status, "Mouse moved! Interrupted!", "red")
+            self.running = False
+            return
+
+        if self.stop_typing_flag:
+            self.root.after(0, self.update_status, "Typing stopped by stop keyword!", "red")
+            self.running = False
+            return
+
+        pyautogui.typewrite(message, interval=delay)
+        self.running = False
+        self.root.after(0, self.update_status, "Done", "blue")
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = AutoTyperApp(root)
+    root.mainloop()
+
+
+
