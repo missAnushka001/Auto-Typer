@@ -15,7 +15,9 @@ The **Auto Typer** is a powerful, desktop automation tool built with Python and 
 * **Status Updates:** Real-time status messages (Idle, Typing, Done, Interrupted) provide clear feedback.
 * **Hotkeys:** Pressing **F6** resets the application's status to Idle, clearing any stop flags.
 
-##Screenshot
+## Screenshot
+
+![screenshot](https://github.com/missAnushka001/Auto-Typer/blob/main/Screenshot%20(21).png)
 
 
 ## 🛠️ Installation
