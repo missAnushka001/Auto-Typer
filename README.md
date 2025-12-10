@@ -1,8 +1,8 @@
-# Auto Typer - Multi Keyword Edition
+# Auto Typer
 
 ## 🚀 Overview
 
-The **Auto Typer - Multi Keyword Edition** is a powerful, desktop automation tool built with Python and `tkinter`. It allows users to define multiple messages, each triggered by a unique keyword or phrase. When the application detects a defined keyword being typed anywhere on the screen, it automatically backspaces the keyword and rapidly types out the corresponding full message. This is ideal for quickly inserting common phrases, code snippets, or long messages using short, customized triggers.
+The **Auto Typer** is a powerful, desktop automation tool built with Python and `tkinter`. It allows users to define multiple messages, each triggered by a unique keyword or phrase. When the application detects a defined keyword being typed anywhere on the screen, it automatically backspaces the keyword and rapidly types out the corresponding full message. This is ideal for quickly inserting common phrases, code snippets, or long messages using short, customized triggers.
 
 ## ✨ Key Features
 
